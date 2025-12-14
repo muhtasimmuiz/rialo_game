@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rialo Game - Arcade Front</title>
+
+<style>
+/* Offline Arcade Gamer ফন্ট লোড */
+@font-face {
+  font-family: 'Arcade Gamer';
+  src: url('fonts/ArcadeGamer.ttf') format('truetype');
+}
+
+body{
+  margin:0;
+  background:#efe7d8;
+  overflow:hidden;
+  font-family: 'Arcade Gamer', monospace;
+}
+
+/* Arcade Front z-index */
+#score{
+  position:fixed;
+  top:15px;
+  right:20px;
+  font-size:20px;
+  font-weight:bold;
+  z-index:1000;
+}
+
+#timer{
+  position:fixed;
+  top:15px;
+  left:20px;
+  font-size:20px;
+  font-weight:bold;
+  z-index:1000;
+}
+
+.ball{
+  position:absolute;
+  border-radius:50%;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+  z-index:900;
+}
+
+.ball img{
+  width:100%;
+  height:100%;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.pointEffect {
+  position:absolute;
+  color: black;
+  font-weight:bold;
+  font-size:18px;
+  pointer-events:none;
+  text-shadow: 1px 1px 2px white;
+  animation: flyUp 0.7s forwards;
+  z-index:950;
+}
+
+@keyframes flyUp {
+  0% { opacity:1; transform: translateY(0); }
+  100% { opacity:0; transform: translateY(-50px); }
+}
+
+.particle {
+  position:absolute;
+  width:6px;
+  height:6px;
+  background: gold;
+  border-radius:50%;
+  pointer-events:none;
+  animation: explode 0.7s forwards;
+  z-index:950;
+}
+
+@keyframes explode {
+  0% { opacity:1; transform: translate(0,0) scale(1); }
+  100% { opacity:0; transform: translate(var(--dx), var(--dy)) scale(0); }
+}
+
+#gameOver{
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.8);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  z-index:500;
+}
+
+#gameOverBox{
+  background:#111;
+  padding:30px;
+  border-radius:12px;
+  text-align:center;
+  width:80%;
+  max-width:300px;
+}
+
+#home{
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  background:#efe7d8;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column;
+  transition: all 0.5s;
+  z-index:500;
+}
+
+#home h1{
+  font-size:36px;
+  margin:0;
+  animation: logoBounce 1s infinite alternate;
+}
+
+@keyframes logoBounce{
+  0%{ transform: translateY(0); }
+  100%{ transform: translateY(-20px); }
+}
+
+#home p, #home #highHome{
+  font-size:18px;
+  margin-top:10px;
+}
+
+#home button{
+  padding:12px 24px;
+  font-size:18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  margin-top:10px;
+}
+
+/* সব লেখা Arcade Gamer ফন্টে */
+#score, #timer, #home h1, #home p, #home #highHome, #gameOverBox h1, #gameOverBox p, #gameOverBox button {
+  font-family: 'Arcade Gamer', monospace;
+}
+</style>
+</head>
+
+<body>
+
+<div id="home">
+  <h1><img src="rialo_logo.png" style="width:50px;height:50px;vertical-align:middle;"> RIALO GAME</h1>
+  <p>Tap Start to play</p>
+  <button onclick="startGame()">Start Game</button>
+  <div id="highHome">High Score: 0</div>
+</div>
+
+<div id="timer">Time: 30</div>
+<div id="score">RIALO POINT: 0</div>
+
+<div id="gameOver">
+  <div id="gameOverBox">
+    <h1>GAME OVER</h1>
+    <p id="finalScore"></p>
+    <p id="highScore"></p>
+    <button onclick="restartGame()">Restart</button>
+    <button onclick="goBack()">Back</button>
+  </div>
+</div>
+
+<audio id="clickSound" src="click.mp3"></audio>
+<audio id="overSound" src="gameover.mp3"></audio>
+
+<script>
+let score = 0;
+let timeLeft = 30;
+let gameRunning = false;
+let gameStarted = false;
+
+const scoreEl = document.getElementById("score");
+const timerEl = document.getElementById("timer");
+const gameOverEl = document.getElementById("gameOver");
+const finalScoreEl = document.getElementById("finalScore");
+const highScoreEl = document.getElementById("highScore");
+const homeEl = document.getElementById("home");
+const highHomeEl = document.getElementById("highHome");
+const clickSound = document.getElementById("clickSound");
+const overSound = document.getElementById("overSound");
+
+document.body.addEventListener('click', ()=>{
+  if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen();
+  }
+},{once:true});
+
+function startGame(){
+  homeEl.style.display = 'none';
+  gameRunning = true;
+  gameStarted = true;
+  score = 0;
+  timeLeft = 30;
+  scoreEl.innerText = "RIALO POINT: 0";
+}
+
+setInterval(()=>{
+  if(!gameRunning) return;
+  timeLeft--;
+  timerEl.innerText = "Time: " + timeLeft;
+  if(timeLeft <= 0){ endGame(); }
+},1000);
+
+function endGame(){
+  gameRunning = false;
+  overSound.play();
+  let best = localStorage.getItem("rialoHigh") || 0;
+  if(score > best){ best = score; localStorage.setItem("rialoHigh", best); }
+  finalScoreEl.innerText = "YOUR RIALO POINT : " + score;
+  highScoreEl.innerText = "HIGH SCORE : " + best;
+  highHomeEl.innerText = "High Score: " + best;
+  gameOverEl.style.display = "flex";
+}
+
+function restartGame(){ location.reload(); }
+function goBack(){ gameOverEl.style.display = "none"; homeEl.style.display = 'flex'; gameRunning = false; gameStarted = false; }
+
+function createBall(){
+  if(!gameRunning || !gameStarted) return;
+  const ball = document.createElement("div");
+  const isBad = Math.random() < 0.3;
+  let size = 60, points = 1;
+  const r = Math.random();
+  if(r > 0.66){ size = 120; points = 5; } else if(r > 0.33){ size = 90; points = 3; }
+  ball.className = "ball";
+  ball.style.width = size + "px";
+  ball.style.height = size + "px";
+  ball.style.left = Math.random() * (window.innerWidth - size) + "px";
+  ball.style.top = "-120px";
+  ball.innerHTML = isBad ? '<img src="bad.png">' : '<img src="good.png">';
+  document.body.appendChild(ball);
+  let speed = 3 + (30 - timeLeft) * 0.15;
+  if(speed > 10) speed = 10;
+  function fall(){ if(!gameRunning){ ball.remove(); return; } ball.style.top = parseFloat(ball.style.top)+speed+"px"; if(parseFloat(ball.style.top) > window.innerHeight){ ball.remove(); return; } requestAnimationFrame(fall); }
+  fall();
+  ball.onclick = ()=>{
+    if(!gameRunning) return;
+    clickSound.currentTime = 0; clickSound.play();
+    if(isBad) score -= 5; else score += points;
+    scoreEl.innerText = "RIALO POINT: " + score;
+    const p = document.createElement('div');
+    p.className='pointEffect'; p.innerText=isBad?'-5':'+'+points;
+    const ballRect=ball.getBoundingClientRect();
+    const scrollTop=window.scrollY||document.documentElement.scrollTop;
+    const scrollLeft=window.scrollX||document.documentElement.scrollLeft;
+    p.style.left=(ballRect.left+scrollLeft)+'px';
+    p.style.top=(ballRect.top+scrollTop)+'px';
+    document.body.appendChild(p);
+    setTimeout(()=>{p.remove();},700);
+    for(let i=0;i<8;i++){
+      const part=document.createElement('div'); part.className='particle';
+      part.style.left=(ballRect.left+scrollLeft)+'px';
+      part.style.top=(ballRect.top+scrollTop)+'px';
+      const dx=(Math.random()-0.5)*100+'px'; const dy=(Math.random()-0.5)*100+'px';
+      part.style.setProperty('--dx',dx); part.style.setProperty('--dy',dy);
+      document.body.appendChild(part); setTimeout(()=>{part.remove();},700);
+    }
+    ball.remove();
+  };
+}
+setInterval(()=>{if(gameRunning && gameStarted){createBall();}},800);
+let storedHigh=localStorage.getItem("rialoHigh")||0; highHomeEl.innerText="High Score: "+storedHigh;
+</script>
+
+</body>
+</html>
